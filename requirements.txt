@@ -1,10 +1,11 @@
 streamlit
 langchain==0.2.1
 langchain-community==0.0.21
+langchain-huggingface
 chromadb==0.4.24
 tiktoken
-huggingface-hub
 sentence-transformers
+huggingface-hub
 PyPDF2
-groq  
-
+groq
+protobuf==3.20.3
