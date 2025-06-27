@@ -1,7 +1,8 @@
 streamlit
-PyPDF2
-chromadb
 langchain
-tiktoken
-groq
+chromadb
+openai
 python-dotenv
+PyPDF2
+sentence-transformers
+requests
