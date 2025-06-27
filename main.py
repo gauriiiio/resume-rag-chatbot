@@ -1,65 +1,51 @@
-import streamlit as st
 import os
 import tempfile
+import streamlit as st
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_community.llms.groq import ChatGroq
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.chains.question_answering import load_qa_chain
+from phi.assistant import Assistant
+from phi.llm.groq import Groq
 
 # Load Groq API key from Streamlit secrets
-groq_api_key = st.secrets["GROQ_API_KEY"]
+groq_api_key = st.secrets["groq_api_key"]
 
-# Streamlit UI
+# Set up LLM with Phi model
+llm = Groq(
+    api_key=groq_api_key,
+    model="phi-2"
+)
+
+# Set up Streamlit UI
 st.set_page_config(page_title="Resume RAG Chatbot", layout="wide")
-st.title("🤖 Resume RAG Chatbot")
-st.write("Ask any question about your uploaded resume!")
+st.title(" Resume Chatbot")
 
-uploaded_file = st.file_uploader("📄 Upload your resume (PDF)", type="pdf")
+pdf = st.file_uploader("Upload a resume (PDF)", type="pdf")
 
-query = st.text_input("🔍 Ask a question about the resume")
+if pdf:
+    pdf_reader = PdfReader(pdf)
+    raw_text = ""
+    for page in pdf_reader.pages:
+        content = page.extract_text()
+        if content:
+            raw_text += content
 
-# Only proceed if both file and query are present
-if uploaded_file and query:
+    # Split text into chunks
+    text_splitter = CharacterTextSplitter(separator="\n", chunk_size=1000, chunk_overlap=200)
+    texts = text_splitter.split_text(raw_text)
+
+    # Set up embedding and vectorstore
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        pdf_path = os.path.join(tmpdir, uploaded_file.name)
-        with open(pdf_path, "wb") as f:
-            f.write(uploaded_file.read())
+        vectorstore = Chroma.from_texts(texts, embedding=embeddings, persist_directory=tmpdir)
 
-        # Extract text from PDF
-        pdf_reader = PdfReader(pdf_path)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text() or ""
+        # Set up Assistant with vectorstore
+        assistant = Assistant(llm=llm, vectorstore=vectorstore)
 
-        # Split text into chunks
-        text_splitter = CharacterTextSplitter(
-            separator="\n",
-            chunk_size=1000,
-            chunk_overlap=100,
-            length_function=len,
-        )
-        chunks = text_splitter.split_text(text)
-
-        # Embeddings
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-        # Create vector store
-        vectorstore = Chroma.from_texts(
-            chunks,
-            embedding=embeddings,
-            persist_directory=tmpdir
-        )
-
-        # Load retriever and chain
-        docs = vectorstore.similarity_search(query)
-        llm = ChatGroq(temperature=0, groq_api_key=groq_api_key, model_name="mixtral-8x7b-32768")
-        chain = load_qa_chain(llm, chain_type="stuff")
-
-        # Get answer
-        response = chain.run(input_documents=docs, question=query)
-
-        # Display
-        st.subheader("📤 Answer")
-        st.write(response)
+        query = st.text_input("Ask something about this resume:")
+        if query:
+            result = assistant.run(query)
+            st.markdown("### 💬 Response")
+            st.write(result)
