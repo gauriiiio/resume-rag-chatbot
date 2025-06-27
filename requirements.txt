@@ -2,8 +2,8 @@ streamlit
 langchain
 langchain-community
 chromadb
-sentence-transformers
-PyPDF2
+pymupdf
 python-dotenv
-requests
-groq
+huggingface-hub
+sentence-transformers
+langchain-groq
