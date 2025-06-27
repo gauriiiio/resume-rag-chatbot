@@ -4,5 +4,5 @@ chromadb==0.4.24
 sentence-transformers
 huggingface-hub
 phi-ai
-langchain-core
-langchain-community
+langchain-core==0.1.32
+langchain-community==0.0.32
