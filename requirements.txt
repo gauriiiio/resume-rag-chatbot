@@ -1,10 +1,10 @@
 streamlit
+python-dotenv
+PyPDF2
+requests
 langchain
 langchain-community
+langchain-core
 chromadb
-protobuf==3.20.3
-pymupdf
-python-dotenv
 huggingface-hub
 sentence-transformers
-langchain-groq
