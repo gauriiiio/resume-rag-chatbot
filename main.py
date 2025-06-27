@@ -5,7 +5,7 @@ from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from phi.assistant import Assistant
+from phi.agent import Agent
 from phi.llm.groq import Groq
 
 # Load Groq API key from Streamlit secrets
@@ -42,10 +42,10 @@ if pdf:
         vectorstore = Chroma.from_texts(texts, embedding=embeddings, persist_directory=tmpdir)
 
         # Set up Assistant with vectorstore
-        assistant = Assistant(llm=llm, vectorstore=vectorstore)
+        agent = Agent(llm=llm, vectorstore=vectorstore)
 
         query = st.text_input("Ask something about this resume:")
         if query:
-            result = assistant.run(query)
+            result = agent.run(query)
             st.markdown("### 💬 Response")
             st.write(result)
