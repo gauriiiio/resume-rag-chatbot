@@ -1,67 +1,59 @@
 import os
 os.environ["CHROMA_TELEMETRY"] = "FALSE"
-import tempfile
+
 import streamlit as st
-from dotenv import load_dotenv
 from PyPDF2 import PdfReader
-from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_core.documents import Document
-from langchain_core.prompts import PromptTemplate
-import requests
+from langchain_groq import ChatGroq
+from langchain.chains.question_answering import load_qa_chain
+import tempfile
 
+# UI
+st.set_page_config(page_title="Resume RAG Chatbot", layout="wide")
+st.title("📄 Resume RAG Chatbot")
+st.write("Upload a resume (PDF), ask questions, and get insights.")
 
+uploaded_file = st.file_uploader("Upload a Resume PDF", type="pdf")
 
-load_dotenv()
+query = st.text_input("Ask a question about the resume:")
 
-#  Groq API
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if uploaded_file and query:
+    with st.spinner("Processing..."):
+        # Read PDF
+        reader = PdfReader(uploaded_file)
+        raw_text = ""
+        for page in reader.pages:
+            raw_text += page.extract_text() or ""
 
-#  Embeddings
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        # Split text into chunks
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000, chunk_overlap=200
+        )
+        texts = text_splitter.split_text(raw_text)
 
-#  Groq call function
-def call_groq(prompt: str, context: str) -> str:
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "mixtral-8x7b-32768",
-        "messages": [
-            {"role": "system", "content": f"You are a helpful assistant."},
-            {"role": "user", "content": f"Context: {context}\n\nQuestion: {prompt}"}
-        ]
-    }
-    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
-    return response.json()["choices"][0]["message"]["content"]
+        # Embed and index using ChromaDB
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-#  Text extraction
-def extract_text_from_pdf(pdf_file):
-    reader = PdfReader(pdf_file)
-    return "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vectorstore = Chroma.from_texts(texts, embedding=embeddings, persist_directory=tmpdir)
 
-#  UI and workflow
-st.title(" Resume Chatbot")
-uploaded_file = st.file_uploader("Upload your Resume PDF", type="pdf")
+            # Set up Groq model
+            llm = ChatGroq(
+                groq_api_key=os.environ.get("GROQ_API_KEY"),
+                model_name="mixtral-8x7b-32768"
+            )
 
-if uploaded_file:
-    text = extract_text_from_pdf(uploaded_file)
-    splitter = CharacterTextSplitter(separator="\n", chunk_size=500, chunk_overlap=100)
-    chunks = splitter.split_text(text)
-    documents = [Document(page_content=chunk) for chunk in chunks]
+            chain = load_qa_chain(llm, chain_type="stuff")
 
-    #  Use temporary path for Chroma
-    with tempfile.TemporaryDirectory() as tmpdir:
-        vectorstore = Chroma.from_documents(documents, embedding=embeddings, persist_directory=tmpdir)
-        query = st.text_input("Ask something about the resume")
+            docs = vectorstore.similarity_search(query)
 
-        if query:
-            results = vectorstore.similarity_search(query, k=3)
-            context = "\n".join([res.page_content for res in results])
-            answer = call_groq(query, context)
-            st.write("### 💬 Answer:")
+            # Answer
+            answer = chain.run(input_documents=docs, question=query)
+
+            st.success("Answer:")
             st.write(answer)
+
 
 
