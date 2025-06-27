@@ -1,8 +1,8 @@
 streamlit
 langchain
+langchain-community
 chromadb
-openai
-python-dotenv
-PyPDF2
 sentence-transformers
+PyPDF2
+python-dotenv
 requests
