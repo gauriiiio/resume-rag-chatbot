@@ -1,4 +1,5 @@
 import os
+os.environ["CHROMA_TELEMETRY"] = "FALSE"
 import tempfile
 import streamlit as st
 from dotenv import load_dotenv
@@ -9,7 +10,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 import requests
-os.environ["CHROMA_TELEMETRY"] = "FALSE"
+
 
 
 load_dotenv()
