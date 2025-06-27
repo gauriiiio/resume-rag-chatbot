@@ -7,4 +7,3 @@ chromadb==0.4.24
 huggingface-hub
 sentence-transformers
 phi-ai==0.0.8
-
